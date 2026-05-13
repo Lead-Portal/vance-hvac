@@ -84,7 +84,7 @@ function Hero({ rotateWords, typeSpeed }) {
         <div className="absolute top-40 -left-20 w-[360px] h-[360px] rounded-full bg-blue-100/40 blur-3xl"></div>
       </div>
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-start">
           <div className="lg:col-span-7 reveal">
             <span className="chip">{C.serviceArea} · Family-Owned · {C.city}, {C.state}</span>
             <h1 className="font-display text-[2.6rem] sm:text-5xl lg:text-[4.4rem] leading-[1.02] mt-7 text-gray-900">
