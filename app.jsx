@@ -789,6 +789,16 @@ function Footer() {
             <span><span className="font-mono font-semibold text-gray-700">{C.rating}</span> · {C.reviewCount} reviews</span>
           </div>
         </div>
+        <div className="mt-4 text-center">
+          <a
+            href="https://www.leadportalapp.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors tracking-wide"
+          >
+            Powered by LeadPortal
+          </a>
+        </div>
       </div>
     </footer>
   );
