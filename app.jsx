@@ -138,45 +138,30 @@ function TrustItem({ text }) {
 // LEAD FORM
 // ============================================================
 function LeadForm() {
-  // LeadCapture iframe — paste your funnel URL into LEADCAPTURE_URL below.
-  // The funnel posts to /api/leads on LeadPortal so leads flow into the
-  // same pipeline as everything else (Vance qualification → Sarah → contractor).
-  // Leave as empty string to render a clean placeholder until the funnel is live.
-  const LEADCAPTURE_URL = "";
+  // LeadCapture embed — funnel 9E2N4z7Dwm. The script auto-injects the form
+  // into wherever it lives in the DOM. We inject it via useEffect (React
+  // strips inline <script> tags from JSX) and mount it inside the card so
+  // it visually sits where the old form was.
+  const embedRef = useRef(null);
 
+  useEffect(() => {
+    if (!embedRef.current) return;
+    // Reset on remount so we don't end up with duplicate forms.
+    embedRef.current.innerHTML = '';
+    const script = document.createElement('script');
+    script.src = 'https://my.leadcapture.io/embed.min.js';
+    script.async = true;
+    script.setAttribute('data-funnel', '9E2N4z7Dwm');
+    embedRef.current.appendChild(script);
+  }, []);
+
+  // The LeadCapture funnel renders its own headline / subheadline / card chrome,
+  // so we drop the outer Vance chip + h3 to avoid duplicating the copy. The
+  // CSS in styles.css flattens the embed's card so the surrounding Vance card
+  // stays the sole visual frame.
   return (
-    <div id="estimate" className="card p-6 lg:p-7" style={{ borderRadius: '1.5rem', boxShadow: '0 30px 60px -30px rgba(15,23,42,0.18), 0 8px 16px -8px rgba(15,23,42,0.06)' }}>
-      <div className="mb-5">
-        <span className="chip">Free Estimate</span>
-        <h3 className="font-display text-2xl mt-3 text-gray-900">Get a callback in 30 seconds.</h3>
-        <p className="text-sm text-gray-500 mt-1.5">No obligation. Free estimate on every new install.</p>
-      </div>
-      <div className="rounded-2xl overflow-hidden bg-gray-50 grid place-items-center" style={{ minHeight: 520 }}>
-        {LEADCAPTURE_URL ? (
-          <iframe
-            src={LEADCAPTURE_URL}
-            title="Vance Air & Heat — Free Estimate"
-            className="w-full"
-            style={{ minHeight: 520, border: 0, display: 'block' }}
-            loading="lazy"
-            allow="clipboard-write"
-          />
-        ) : (
-          <div className="p-8 text-center">
-            <div className="w-14 h-14 rounded-full bg-blue-50 grid place-items-center mx-auto mb-4">
-              <window.Icon name="phone" size={26} className="text-blue-600" stroke={2.5} />
-            </div>
-            <p className="font-display text-lg text-gray-900">Lead form loading…</p>
-            <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
-              Prefer to talk to a person right now?
-            </p>
-            <a href={`tel:${C.phoneRaw}`} className="btn btn-primary mt-4">
-              <window.Icon name="phone" size={15} />
-              <span className="font-mono">{C.phone}</span>
-            </a>
-          </div>
-        )}
-      </div>
+    <div id="estimate" style={{ borderRadius: '1.5rem' }}>
+      <div ref={embedRef} className="leadcapture-embed" style={{ minHeight: 460 }} />
     </div>
   );
 }
