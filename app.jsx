@@ -138,30 +138,213 @@ function TrustItem({ text }) {
 // LEAD FORM
 // ============================================================
 function LeadForm() {
-  // LeadCapture embed — funnel 9E2N4z7Dwm. The script auto-injects the form
-  // into wherever it lives in the DOM. We inject it via useEffect (React
-  // strips inline <script> tags from JSX) and mount it inside the card so
-  // it visually sits where the old form was.
-  const embedRef = useRef(null);
+  // Native lead form — replaces the LeadCapture iframe so we can drop the
+  // LeadCapture subscription. POSTs to /api/leads on LeadPortal with the
+  // exact same payload keys the LeadCapture webhook was sending (fn, ph,
+  // zip, email, service, notes) so all downstream routing (Vance ZIP gate,
+  // Sarah qualification, contractor SMS, sheet sync) keeps working identically.
+  //
+  // Service values mirror the LeadCapture funnel's dropdown options so the
+  // /api/leads Pass 6 mapping (acrepair → repair, ducts → ducts, etc.)
+  // routes the lead through the right form_type → Sarah branch.
 
-  useEffect(() => {
-    if (!embedRef.current) return;
-    // Reset on remount so we don't end up with duplicate forms.
-    embedRef.current.innerHTML = '';
-    const script = document.createElement('script');
-    script.src = 'https://my.leadcapture.io/embed.min.js';
-    script.async = true;
-    script.setAttribute('data-funnel', '9E2N4z7Dwm');
-    embedRef.current.appendChild(script);
-  }, []);
+  const SERVICE_OPTIONS = [
+    { value: 'acrepair',      label: 'AC Repair' },
+    { value: 'acinstallation', label: 'AC Installation' },
+    { value: 'tuneup',        label: 'Tune-Up / Maintenance' },
+    { value: 'ducts',         label: 'Ducts, Thermostats & IAQ' },
+    { value: 'somethingelse', label: 'Something Else' },
+  ];
 
-  // The LeadCapture funnel renders its own headline / subheadline / card chrome,
-  // so we drop the outer Vance chip + h3 to avoid duplicating the copy. The
-  // CSS in styles.css flattens the embed's card so the surrounding Vance card
-  // stays the sole visual frame.
+  const LEADS_ENDPOINT = 'https://www.leadportalapp.com/api/leads';
+
+  const [data, setData] = useState({ fn: '', ph: '', zip: '', email: '', service: '', notes: '' });
+  const [consent, setConsent] = useState(true);
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [serverErr, setServerErr] = useState(null);
+
+  const formatPhone = (raw) => {
+    const d = String(raw || '').replace(/\D/g, '').slice(0, 10);
+    if (d.length < 4) return d;
+    if (d.length < 7) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+    return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (!data.fn.trim()) errs.fn = 'Required';
+    const phoneDigits = data.ph.replace(/\D/g, '');
+    if (!phoneDigits) errs.ph = 'Required';
+    else if (phoneDigits.length !== 10) errs.ph = '10 digits';
+    if (!data.zip.trim()) errs.zip = 'Required';
+    else if (!/^\d{5}$/.test(data.zip.trim())) errs.zip = '5 digits';
+    if (!data.email.trim()) errs.email = 'Required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) errs.email = 'Invalid email';
+    if (!data.service) errs.service = 'Pick one';
+    if (!consent) errs.consent = 'Required to submit';
+    return errs;
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setServerErr(null);
+    const errs = validate();
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    setSubmitting(true);
+    try {
+      const payload = {
+        fn: data.fn.trim(),
+        ph: data.ph.replace(/\D/g, ''),
+        zip: data.zip.trim(),
+        email: data.email.trim(),
+        service: data.service,
+        notes: data.notes.trim(),
+        source: 'vance_homepage',
+      };
+      const res = await fetch(LEADS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Submission failed (${res.status})`);
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setServerErr(err.message || 'Something went wrong. Please call us instead.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div id="estimate" style={{ borderRadius: '1.5rem' }}>
-      <div ref={embedRef} className="leadcapture-embed" style={{ minHeight: 460 }} />
+    <div id="estimate" className="card p-6 lg:p-7" style={{ borderRadius: '1.5rem', boxShadow: '0 30px 60px -30px rgba(15,23,42,0.18), 0 8px 16px -8px rgba(15,23,42,0.06)' }}>
+      {!submitted ? (
+        <>
+          <div className="mb-5">
+            <span className="chip">Free Estimate</span>
+            <h3 className="font-display text-2xl mt-3 text-gray-900">Get a callback in 30 seconds.</h3>
+            <p className="text-sm text-gray-500 mt-1.5">No obligation. Free estimate on every new install.</p>
+          </div>
+          <form onSubmit={submit} className="space-y-3.5" noValidate>
+            <Field label="Full name" error={errors.fn}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Jane Doe"
+                autoComplete="name"
+                value={data.fn}
+                onChange={e => setData({ ...data, fn: e.target.value })}
+              />
+            </Field>
+            <Field label="Phone number" error={errors.ph}>
+              <input
+                type="tel"
+                inputMode="tel"
+                className="form-input font-mono"
+                placeholder="(713) 555-5555"
+                autoComplete="tel"
+                value={data.ph}
+                onChange={e => setData({ ...data, ph: formatPhone(e.target.value) })}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3.5">
+              <Field label="ZIP" error={errors.zip}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  className="form-input font-mono"
+                  placeholder="77441"
+                  autoComplete="postal-code"
+                  value={data.zip}
+                  onChange={e => setData({ ...data, zip: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+                />
+              </Field>
+              <Field label="Email" error={errors.email}>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  value={data.email}
+                  onChange={e => setData({ ...data, email: e.target.value })}
+                />
+              </Field>
+            </div>
+            <Field label="What do you need?" error={errors.service}>
+              <select
+                className="form-input"
+                value={data.service}
+                onChange={e => setData({ ...data, service: e.target.value })}
+              >
+                <option value="">Select a service…</option>
+                {SERVICE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Anything we should know? (optional)">
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder="System age, brand, what's happening, when it started…"
+                value={data.notes}
+                onChange={e => setData({ ...data, notes: e.target.value })}
+              />
+            </Field>
+
+            {/* TCPA consent — required for the automated callback flow. Match
+                the language regulators ask for: clear, opt-in, STOP-to-opt-out. */}
+            <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-[3px] w-4 h-4 rounded border-gray-300 accent-blue-600 flex-shrink-0"
+                checked={consent}
+                onChange={e => setConsent(e.target.checked)}
+              />
+              <span className="text-[0.72rem] text-gray-500 leading-relaxed">
+                By checking this box and clicking <span className="font-semibold text-gray-700">Request Callback</span>, I agree that Vance Air &amp; Heat may contact me at the phone number and email provided about my service request — including via automated calls and text messages. Consent is not a condition of purchase. Message &amp; data rates may apply. Reply STOP to opt out.
+              </span>
+            </label>
+            {errors.consent && <p className="text-xs text-red-500 font-medium -mt-2">{errors.consent}</p>}
+
+            {serverErr && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                {serverErr} You can also call us at <a href={`tel:${C.phoneRaw}`} className="font-semibold underline">{C.phone}</a>.
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn btn-primary w-full mt-1"
+              style={{ padding: '1rem', opacity: submitting ? 0.7 : 1, cursor: submitting ? 'wait' : 'pointer' }}
+            >
+              {submitting ? 'Sending…' : (<>Request Callback <window.Icon name="arrowRight" size={16} /></>)}
+            </button>
+          </form>
+        </>
+      ) : (
+        <div className="py-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-blue-50 grid place-items-center mx-auto mb-5">
+            <window.Icon name="check" size={32} className="text-blue-600" stroke={2.5} />
+          </div>
+          <h3 className="font-display text-2xl text-gray-900">Got it.</h3>
+          <p className="text-gray-600 mt-3 max-w-sm mx-auto">
+            We'll call you back in about <span className="font-semibold text-gray-900">30 seconds</span> during business hours, or first thing tomorrow morning if it's after-hours.
+          </p>
+          <p className="text-sm text-gray-400 mt-6">Need help right now?</p>
+          <a href={`tel:${C.phoneRaw}`} className="btn btn-primary mt-3">
+            <window.Icon name="phone" size={15} />
+            <span className="font-mono">{C.phone}</span>
+          </a>
+        </div>
+      )}
     </div>
   );
 }

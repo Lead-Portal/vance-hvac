@@ -509,38 +509,8 @@ button:focus-visible, a:focus-visible {
   .btn-lg { padding: 0.9rem 1.4rem; font-size: 1rem; }
 }
 
-/* ---- LeadCapture embed ---- */
-/* Vance brand blue for the submit CTA. */
-.leadcapture-embed .lc-button {
-  background-color: #0E2A5C !important;
-  border-color: #0E2A5C !important;
-  color: #fff !important;
-}
-.leadcapture-embed .lc-button:hover,
-.leadcapture-embed .lc-button:focus {
-  background-color: #091e44 !important;
-  border-color: #091e44 !important;
-}
-.leadcapture-embed .lc-button .lc-arrow,
-.leadcapture-embed .lc-button svg { color: #fff !important; fill: currentColor !important; }
-
-/* Focused inputs follow Vance blue */
-.leadcapture-embed .lc-input:focus,
-.leadcapture-embed .lc-select:focus,
-.leadcapture-embed .lc-phone-input:focus {
-  border-color: #0E2A5C !important;
-  box-shadow: 0 0 0 4px rgba(14, 42, 92, 0.12) !important;
-  outline: none !important;
-}
-
-/* The funnel ships its own card chrome — flatten it so the Vance Hero card
-   doesn't nest visually inside another shadowed card. */
-.leadcapture-embed .lc-card {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-}
-.leadcapture-embed .lc-form-container { padding: 0 !important; }
-.leadcapture-embed iframe { width: 100% !important; border: 0 !important; display: block; }
+/* (Phase 171.56 — LeadCapture embed removed; form is now a native React
+    component in app.jsx. Submit button + focused inputs already inherit
+    the Vance blue accent from the existing .hvac-themed .btn-primary
+    and .form-input:focus rules above, so no LeadCapture-specific
+    overrides are needed.) */
